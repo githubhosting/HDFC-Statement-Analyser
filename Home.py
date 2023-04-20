@@ -13,7 +13,7 @@ agree = st.checkbox('Use Sample Statement')
 if agree:
     uploaded_file = st.selectbox('Select Sample Statement', sample_statements)
 else:
-    uploaded_file = st.file_uploader("Choose a Excel file of HDFC Bank Statement", type="xls")
+    uploaded_file = st.file_uploader("Choose a xls formate file of HDFC Bank Statement", type="xls")
 
 if uploaded_file is not None:
     df = pd.read_excel(uploaded_file)
