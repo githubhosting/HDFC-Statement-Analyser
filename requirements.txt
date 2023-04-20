@@ -1,0 +1,4 @@
+pandas==2.0.0
+plotly==5.14.1
+streamlit==1.21.0
+xlrd==2.0.1
