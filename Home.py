@@ -110,15 +110,15 @@ if uploaded_file is not None:
     end_date = st.date_input('End date', value=end_range)
     mask = (df['Date'] >= start_date) & (df['Date'] <= end_date)
     df = df.loc[mask]
-    st.write(df, use_container_width=True)
+    st.dataframe(df, use_container_width=True)
     st.write(f'Total Deposited: Rs {df["Deposited"].sum()}')
     st.write(f'Total Withdrawal: Rs {df["Withdrawal"].sum()}')
 
     st.subheader('Total amount spent on each UPI')
-    st.write(df.groupby('UPIs')['Withdrawal'].sum().sort_values(ascending=False), use_container_width=True)
+    st.dataframe(df.groupby('UPIs')['Withdrawal'].sum().sort_values(ascending=False), use_container_width=True)
 
     st.subheader('Highest amount spent in one transaction')
-    st.write(df.loc[df['Withdrawal'].idxmax()], use_container_width=True)
+    st.dataframe(df.loc[df['Withdrawal'].idxmax()], use_container_width=True)
 
     inday = df.groupby("Date")['Withdrawal'].sum().sort_values(ascending=False).head(1).index[0].strftime("%d %B")
     st.subheader(f'Highest amount spent in a day')

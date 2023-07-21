@@ -10,3 +10,4 @@ scraper==0.1.0
 selenium==3.141.0
 threadpoolctl==3.1.0
 typing_extensions==4.3.0
+PyYAML~=6.0
