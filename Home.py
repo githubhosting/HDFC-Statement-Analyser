@@ -3,9 +3,11 @@ import pandas as pd
 from datetime import date, datetime
 import plotly.express as px
 
+st.set_page_config(page_title='HDFC Bank Statement Analysis', page_icon=':moneybag:')
+
 st.title('Visualize Your HDFC Bank Statement')
 st.write('Export your HDFC Bank statement as a XLS file and drop it here to analyze your expenses')
-st.write("Note: We don't store your data. It's all done locally on your machine")
+st.markdown("*Note: We don't store your data*")
 
 sample_statements = ["https://github.com/myselfshravan/Python/files/10087176/statement23.xls",
                      "https://github.com/myselfshravan/Streamlit-Apps-Python/files/11287111/Acct.Statement_2022_Full.xls"]
@@ -120,17 +122,17 @@ if uploaded_file is not None:
     st.subheader('Highest amount spent in one transaction')
     st.dataframe(df.loc[df['Withdrawal'].idxmax()], use_container_width=True)
 
-    inday = df.groupby("Date")['Withdrawal'].sum().sort_values(ascending=False).head(1).index[0].strftime("%d %B")
+    in_a_day = df.groupby("Date")['Withdrawal'].sum().sort_values(ascending=False).head(1).index[0].strftime("%d %B")
     st.subheader(f'Highest amount spent in a day')
     amount = df.groupby("Date")['Withdrawal'].sum().sort_values(ascending=False).head(1).values[0]
-    st.write(f'On {inday} : Rs {amount}')
+    st.write(f'On {in_a_day} : Rs {amount}')
 
 hide_streamlit_style = """
                     <style>
                     # MainMenu {visibility: hidden;}
                     footer {visibility: hidden;}
                     footer:after {
-                    content:'Made with ❤️ by Shravan'; 
+                    content:'Made with passion by Shravan'; 
                     visibility: visible;
     	            display: block;
     	            position: relative;
