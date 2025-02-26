@@ -5,7 +5,10 @@ import plotly.express as px
 import numpy as np
 import locale
 
-locale.setlocale(locale.LC_ALL, 'en_IN')
+try:
+    locale.setlocale(locale.LC_ALL, 'en_IN.UTF-8')  # Try a more specific locale
+except locale.Error:
+    locale.setlocale(locale.LC_ALL, 'C.UTF-8')
 
 st.set_page_config(page_title='HDFC Bank Statement Analysis', page_icon=':moneybag:')
 
