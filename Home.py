@@ -96,14 +96,22 @@ if uploaded_file is not None:
         end = datetime.strptime(df['Date'].iloc[-1].strftime('%d/%m/%y'), '%d/%m/%y')
         st.write(f"Statement Period: {start_date} to {end_date}")
         days = (end - start).days
-        st.write(f"Number of Days: {days}")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Number of Days", f"{days}")
+            st.metric("Total Transactions", len(df))
+        with col2:
+            st.metric("Total Withdrawal", f"₹{df['Withdrawal'].sum():,.2f}")
+            st.metric("Total Deposit", f"₹{df['Deposited'].sum():,.2f}")
         total_withdrawal = df['Withdrawal'].sum()
         total_deposit = df['Deposited'].sum()
-        st.write(f"Total Withdrawal and Deposit: Rs {total_withdrawal} - Rs {total_deposit}")
-        st.write(f"Closing and Opening Balance: {df['Balance'].iloc[0]} and {df['Balance'].iloc[-1]}")
-        st.write(f"Total Transactions: {len(df)}")
-        st.write(f"Average Withdrawal per day: {(total_withdrawal / days):.2f}")
-        st.write(f"Average Withdrawal per month: {total_withdrawal / (days / 30):.2f}")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Closing Balance", f"₹{df['Balance'].iloc[-1]:,.2f}")
+            st.metric("Opening Balance", f"₹{df['Balance'].iloc[0]:,.2f}")
+        with col2:
+            st.metric("Average Withdrawal per day", f"₹{(total_withdrawal / days):,.2f}")
+            st.metric("Average Withdrawal per month", f"₹{(total_withdrawal / (days / 30)):.2f}")
         time_frame = list(df['Date'])
         withdrawal = list(df['Withdrawal'])
         for i in range(1, len(withdrawal)):
@@ -122,8 +130,8 @@ if uploaded_file is not None:
         show_df.index = range(1, len(df) + 1)  # Ensure the index starts from 1
         st.dataframe(show_df, use_container_width=True)
 
-        val = st.radio('Select', ('Withdrawal', 'Deposited'))
-        if val == 'Withdrawal':
+        tab1, tab2 = st.tabs(["Withdrawal Analysis", "Deposit Analysis"])
+        with tab1:
             withdraw_line = pd.DataFrame({'Withdrawal': withdrawal}, index=time_frame)
             st.subheader('Withdrawal Trend')
             st.line_chart(withdraw_line, use_container_width=True)
@@ -131,7 +139,7 @@ if uploaded_file is not None:
             st.plotly_chart(fig, use_container_width=True)
             figs = px.scatter(df, x='Date', y='Withdrawal', color='UPI_Name', title='Withdrawals')
             st.plotly_chart(figs, use_container_width=True)
-        elif val == 'Deposited':
+        with tab2:
             deposit_line = pd.DataFrame({'Deposited': deposited}, index=time_frame)
             st.subheader('Deposit Trend')
             st.line_chart(deposit_line, use_container_width=True)
