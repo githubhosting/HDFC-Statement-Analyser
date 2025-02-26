@@ -2,6 +2,10 @@ import streamlit as st
 import pandas as pd
 from datetime import date, datetime
 import plotly.express as px
+import numpy as np
+import locale
+
+locale.setlocale(locale.LC_ALL, 'en_IN')
 
 st.set_page_config(page_title='HDFC Bank Statement Analysis', page_icon=':moneybag:')
 
@@ -17,6 +21,44 @@ if agree:
 else:
     uploaded_file = st.file_uploader("Choose a xls formate file of HDFC Bank Statement", type="xls")
 
+
+def extract_upi_name(upi_string):
+    if upi_string.startswith("UPI-"):
+        return upi_string.split('-')[1] if '-' in upi_string else np.nan
+
+    elif upi_string.startswith("POS"):
+        parts = upi_string.split(" ")
+        return parts[2] if len(parts) > 2 else np.nan
+
+    elif "RTGS" in upi_string or "NEFT" in upi_string:
+        parts = upi_string.split('-')
+        return parts[2] if len(parts) > 2 else np.nan
+
+    elif upi_string.startswith("CASH DEPOSIT BY"):
+        parts = upi_string.split('-')
+        return parts[1].strip() if len(parts) > 1 else np.nan
+
+    else:
+        return np.nan
+
+
+def extract_upi_description(upi_string):
+    if upi_string.startswith("POS"):
+        parts = upi_string.split(" ")
+        return " ".join(parts[2:]) if len(parts) > 2 else np.nan
+
+    elif "RTGS" in upi_string or "NEFT" in upi_string:
+        parts = upi_string.split('-')
+        return parts[-2] if len(parts) > 2 else parts[-1]
+
+    elif upi_string.startswith("CASH DEPOSIT BY"):
+        parts = upi_string.split('-')
+        return parts[-1].strip() if len(parts) > 2 else np.nan
+
+    else:
+        return upi_string.split('-')[-1]
+
+
 if uploaded_file is not None:
     try:
         df = pd.read_excel(uploaded_file, sheet_name=0)
@@ -25,17 +67,23 @@ if uploaded_file is not None:
         df = df.drop(df.index[1])
         df = df.fillna(0)
         df.rename(
-            columns={'Unnamed: 1': 'UPIs', 'Unnamed: 3': 'Date', 'Unnamed: 4': 'Withdrawal', 'Unnamed: 5': 'Deposited',
+            columns={'Unnamed: 1': 'Narration', 'Unnamed: 3': 'Date', 'Unnamed: 4': 'Withdrawal',
+                     'Unnamed: 5': 'Deposited',
                      'Unnamed: 6': 'Balance'},
             inplace=True)
 
         df['Date'] = pd.to_datetime(df['Date'], format='%d/%m/%y').dt.date
+        df['Date_Formated'] = pd.to_datetime(df['Date'], format='%d/%m/%y').dt.strftime('%d-%b-%Y')
         df['Withdrawal'] = df['Withdrawal'].apply(lambda x: "{:.1f}".format(x)).astype(float)
         df['Deposited'] = df['Deposited'].apply(lambda x: "{:.1f}".format(x)).astype(float)
         df['Balance'] = df['Balance'].astype(float)
-        df['UPIs'] = df['UPIs'].astype(str)
-        df['UPIs'] = df['UPIs'].str.split('@', expand=True)[0]
-        df['UPIs'] = df['UPIs'].str.split('-', expand=True)[1]
+        df['Narration'] = df['Narration'].astype(str)
+        df['UPIs'] = df['Narration'].str.split('@', expand=True)[0]
+        df['UPI_Name'] = df['UPIs'].apply(extract_upi_name)
+        df['UPI_Bank'] = df['Narration'].str.extract(r'@(.*?)-')
+        df['UPI_Description'] = df['Narration'].apply(extract_upi_description)
+        df['Cumulative_Withdrawal'] = df['Withdrawal'].cumsum()
+        df['Cumulative_Deposited'] = df['Deposited'].cumsum()
         df.index = range(1, len(df) + 1)
 
         start_date = df['Date'].iloc[0].strftime("%B %d %Y")
@@ -65,12 +113,10 @@ if uploaded_file is not None:
         line = pd.DataFrame({'Balance': balance}, index=time_frame)
         st.subheader('Balance Trend')
         st.line_chart(line, use_container_width=True)
-
-        # fig = px.line(df, x='Date', y='Balance', title='Balance Trend', color_discrete_sequence=['#1f77b4'],
-        #               template='plotly_white', labels={'Date': 'Date', 'Balance': 'Balance'},
-        #               hover_data={'Date': False, 'Balance': ':.2f'})
-        # st.plotly_chart(fig, use_container_width=True)
-        st.dataframe(df, use_container_width=True)
+        st.subheader("All Transaction")
+        show_df = df[['UPI_Name', 'UPI_Description', 'Date_Formated', 'Withdrawal', 'Deposited', 'Balance', 'Cumulative_Withdrawal', 'Cumulative_Deposited']]
+        show_df.index = range(1, len(df) + 1)  # Ensure the index starts from 1
+        st.dataframe(show_df, use_container_width=True)
 
         val = st.radio('Select', ('Withdrawal', 'Deposited'))
         if val == 'Withdrawal':
@@ -79,7 +125,7 @@ if uploaded_file is not None:
             st.line_chart(withdraw_line, use_container_width=True)
             fig = px.bar(df, x='Date', y='Withdrawal', title='Withdrawals')
             st.plotly_chart(fig, use_container_width=True)
-            figs = px.scatter(df, x='Date', y='Withdrawal', color='UPIs', title='Withdrawals')
+            figs = px.scatter(df, x='Date', y='Withdrawal', color='UPI_Name', title='Withdrawals')
             st.plotly_chart(figs, use_container_width=True)
         elif val == 'Deposited':
             deposit_line = pd.DataFrame({'Deposited': deposited}, index=time_frame)
@@ -87,23 +133,40 @@ if uploaded_file is not None:
             st.line_chart(deposit_line, use_container_width=True)
             fig = px.bar(df, x='Date', y='Deposited', title='Deposits')
             st.plotly_chart(fig, use_container_width=True)
-            figs = px.scatter(df, x='Date', y='Deposited', color='UPIs', title='Deposits')
+            figs = px.scatter(df, x='Date', y='Deposited', color='UPI_Name', title='Deposits')
             st.plotly_chart(figs, use_container_width=True)
 
         first_date = df['Date'].iloc[0]
         date_selected = st.date_input('Select Date', value=first_date)
         selected = df.loc[df['Date'] == date_selected]
-        st.dataframe(selected, use_container_width=True)
-        st.write("Total Withdrawals on", date_selected.strftime("%d %B"), "is", selected['Withdrawal'].sum())
-        st.write("Total Deposits on", date_selected.strftime("%d %B"), "is", selected['Deposited'].sum())
+        selected_show = selected[['UPI_Name', 'UPI_Description', 'Withdrawal', 'Deposited', 'Balance', 'Narration']]
+        st.dataframe(selected_show, use_container_width=True)
+        total_withdrawals = locale.format_string('%d', selected['Withdrawal'].sum(), grouping=True)
+        total_deposits = locale.format_string('%d', selected['Deposited'].sum(), grouping=True)
+
+        st.markdown(
+            f"**Total Withdrawals on {date_selected.strftime('%d %B')} is** <span style='color:red;'>Rs {total_withdrawals}</span>",
+            unsafe_allow_html=True)
+        st.markdown(
+            f"**Total Deposits on {date_selected.strftime('%d %B')} is** <span style='color:green;'>Rs {total_deposits}</span>",
+            unsafe_allow_html=True)
+
         df['propdate'] = pd.to_datetime(df['Date'])
         month_selected = st.selectbox('Select Month', df['propdate'].dt.strftime('%B').unique())
         year = st.selectbox('Select Year', df['propdate'].dt.strftime('%Y').unique())
         selected_month = df.loc[
             (df['propdate'].dt.strftime('%B') == month_selected) & (df['propdate'].dt.strftime('%Y') == year)]
-        st.dataframe(selected_month, use_container_width=True)
-        st.write("Total Withdrawals in", month_selected, "is", selected_month['Withdrawal'].sum())
-        st.write("Total Deposits in", month_selected, "is", selected_month['Deposited'].sum())
+        selected_month_show = selected_month[
+            ['UPI_Name', 'UPI_Description', 'Date_Formated', 'Withdrawal', 'Deposited', 'Balance']]
+        st.dataframe(selected_month_show, use_container_width=True)
+
+        total_withdrawals = locale.format_string('%d', selected_month['Withdrawal'].sum(), grouping=True)
+        total_deposits = locale.format_string('%d', selected_month['Deposited'].sum(), grouping=True)
+        st.markdown(f"**Total Deposits in {month_selected} is** <span style='color:green;'>Rs {total_deposits}</span>",
+                    unsafe_allow_html=True)
+        st.markdown(
+            f"**Total Withdrawals in {month_selected} is** <span style='color:red;'>Rs {total_withdrawals}</span>",
+            unsafe_allow_html=True)
 
         st.write("\n")
         st.subheader('Select a date range')
@@ -113,9 +176,14 @@ if uploaded_file is not None:
         end_date = st.date_input('End date', value=end_range)
         mask = (df['Date'] >= start_date) & (df['Date'] <= end_date)
         df = df.loc[mask]
-        st.dataframe(df, use_container_width=True)
-        st.write(f'Total Deposited: Rs {df["Deposited"].sum()}')
-        st.write(f'Total Withdrawal: Rs {df["Withdrawal"].sum()}')
+        mask_show = df[['UPI_Name', 'UPI_Description', 'Date_Formated', 'Withdrawal', 'Deposited', 'Balance']]
+        st.dataframe(mask_show, use_container_width=True)
+        total_deposited = locale.format_string('%d', df['Deposited'].sum(), grouping=True)
+        total_withdrawal = locale.format_string('%d', df['Withdrawal'].sum(), grouping=True)
+        st.markdown(f"**Total Deposited:** <span style='color:green;'>Rs {total_deposited}</span>",
+                    unsafe_allow_html=True)
+        st.markdown(f"**Total Withdrawal:** <span style='color:red;'>Rs {total_withdrawal}</span>",
+                    unsafe_allow_html=True)
 
         st.subheader('Total amount spent on each UPI')
         st.dataframe(df.groupby('UPIs')['Withdrawal'].sum().sort_values(ascending=False), use_container_width=True)
